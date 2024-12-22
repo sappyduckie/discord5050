@@ -1,8 +1,8 @@
+from bs4 import BeautifulSoup
+import os
 import random
 import requests
 import string
-from bs4 import BeautifulSoup
-import os
 
 def pattern_generator():
     # randomized generic strings
