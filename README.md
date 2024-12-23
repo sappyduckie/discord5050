@@ -9,9 +9,8 @@ I am not responsible for any images found or the harm that is caused by them. Th
 
 I have only exploited their flaw, which they let me exploit by having one.
 
-# V2.0 ONWARDS
-## Now written completely in Rust.
-I will be dropping support for the Python edition, but you can still use it from V1.1, it works fine.
+## V2.0 ONWARDS IS NOW WRITTEN IN RUST.
+I will be dropping support for the Python edition, but you can still use it from V1.1, it works fine, but there's no real reason to I mean its a binary executable. If you wish to edit it for yourself I left the main.py file in the Python/ dir.
 
 V2.0 is about 1.2x faster than V1.1, and uses less CPU overall.
 
