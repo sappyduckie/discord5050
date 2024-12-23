@@ -38,7 +38,7 @@ def url_valid(pattern):
             return True
 
     except requests.exceptions.RequestException as e:
-        return "URL: {pattern}"
+        return f"{e} URL: {pattern}"
 
 def main():
     iteration = 0
