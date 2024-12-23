@@ -8,3 +8,13 @@ This exclusively searches for images named img.png because I didn't want the hea
 I am not responsible for any images found or the harm that is caused by them. There can and will be NSFW. Discord is responsible by making all images uploaded as publicly viewable and not accurately describing that fact to its users in an easily accessible location.
 
 I have only exploited their flaw, which they let me exploit by having one.
+
+# V2.0 ONWARDS
+## Now written completely in Rust.
+I will be dropping support for the Python edition, but you can still use it from V1.1, it works fine.
+
+V2.0 is about 1.2x faster than V1.1, and uses less CPU overall.
+
+This is going to continue receiving updates as I find ways to improve the speed and efficiency of the program.
+
+V2.0 is built using the reqwest crate, I am currently figuring out the 'hyper' crate to replace it with, if anyone has pointers please let me know.
