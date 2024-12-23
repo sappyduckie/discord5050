@@ -24,13 +24,15 @@
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use reqwest::Client;
+use std::fs::OpenOptions;
+use std::io::Write;
 use tokio;
 
 fn hash_gen(rng: &mut StdRng, length: usize) -> String {
     let hex_chars: &str = "0123456789abcdef";
     let mut hex_string: String = String::with_capacity(length);
 
-    // Generate hex char, loop 'length' times
+    // gen hex char, loop 'length' times
     for _ in 0..length {
         let index: usize = rng.gen_range(0..16);
         hex_string.push(hex_chars.chars().nth(index).unwrap());
@@ -57,27 +59,66 @@ fn pattern_generator(rng: &mut StdRng) -> String {
     return url;
 }
 
-async fn url_valid(url: &str) -> Result<bool, reqwest::Error> {
+async fn url_invalid(url: &str) -> Result<bool, String> {
     let client: Client = Client::new();
-    let response: reqwest::Response = client.get(url).send().await?;
-    let status: reqwest::StatusCode = response.status();
-    Ok(status.is_success())
+    match client.get(url).send().await {
+        Ok(response) => {
+            let status: reqwest::StatusCode = response.status();
+            if status.is_success() {
+                // read the response body as text
+                let body_result: Result<String, _> = response.text().await;
+                match body_result {
+                    Ok(body) => {
+                        // check for the specific string
+                        if body.contains("This content is no longer available.") {
+                            return Ok(true); //string found, URL is invalid
+                        } else {
+                            append_to_txt(url);
+                            return Ok(false); //string not found, URL is valid
+                        }
+                    }
+                    Err(e) => {
+                        // handle the error while reading the body
+                        eprintln!("Failed to read response body: {}", e);
+                        append_to_txt(url); //append the URL even if there's an error
+                        return Ok(false); //valid since we couldn't read the body
+                    }
+                }
+            }
+            Ok(false) //return false if the status is not successful
+        }
+        Err(e) => {
+            eprintln!("Error while sending request to URL {}: {}", url, e);
+            Err(format!("Failed to validate URL: {}", e))
+        }
+    }
+}
+
+fn append_to_txt(url: &str) {
+    let file_path: &str = "valid_urls.txt";
+    let mut file: std::fs::File = OpenOptions::new()
+        .write(true)
+        .append(true)
+        .create(true)
+        .open(file_path)
+        .expect("Failed to open or create file");
+    writeln!(file, "URL: {}", url).expect("Failed to write to file");
 }
 
 #[tokio::main]
 async fn main() {
     let mut iteration: u64 = 0;
-    let mut rng: StdRng = SeedableRng::seed_from_u64(173842069800850911); // Initialize RNG with the static seed
+    let mut rng: StdRng = SeedableRng::seed_from_u64(173842069800850911);
 
     loop {
         iteration += 1;
         let pattern: String = pattern_generator(&mut rng);
-        if let Ok(valid) = url_valid(&pattern).await {
-            if valid {
+        if let Ok(invalid) = url_invalid(&pattern).await {
+            if invalid {
+                println!("Iteration: {} Invalid URL: {}", iteration, pattern);
+            } else {
                 println!("Iteration: {} Valid URL: {}", iteration, pattern);
                 break;
-            } else {
-                println!("Iteration: {} Invalid URL: {}", iteration, pattern);
             }
         }
     }
