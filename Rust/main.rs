@@ -24,6 +24,8 @@
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use reqwest::Client;
+use std::fs::OpenOptions;
+use std::io::Write;
 use tokio;
 
 fn hash_gen(rng: &mut StdRng, length: usize) -> String {
@@ -57,11 +59,47 @@ fn pattern_generator(rng: &mut StdRng) -> String {
     return url;
 }
 
+fn append_to_txt(file_path: &str, url: &str) {
+    // open the file and append, create if not exist
+    let mut file = OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open(file_path)
+        .expect("Unable to open or create file");
+    // write the url to the file followed by a newline
+    if let Err(e) = writeln!(file, "{}", url) {
+        eprintln!("Error writing to file: {}", e);
+    }
+}
+
 async fn url_valid(url: &str) -> Result<bool, reqwest::Error> {
     let client: Client = Client::new();
     let response: reqwest::Response = client.get(url).send().await?;
     let status: reqwest::StatusCode = response.status();
-    Ok(status.is_success())
+    // check if response is successful
+    if status.is_success() {
+        return Ok(true);
+    }
+    // attempt to get the response body as text
+    match response.text().await {
+        Ok(body) => {
+            if body.contains("This content is no longer available.") {
+                return Ok(false); //return invalid if 404
+            } else {
+                append_to_txt("valid.txt", &url);
+                return Ok(true); //return valid if not 404
+            }
+        }
+        Err(_) => {
+            // body cannot be converted to a string
+            append_to_txt("valid.txt", &url);
+            println!(
+                "Error: Unable to convert response body to string for URL: {}",
+                url
+            );
+            return Ok(true); //return valid if error
+        }
+    }
 }
 
 #[tokio::main]
@@ -73,11 +111,13 @@ async fn main() {
         iteration += 1;
         let pattern: String = pattern_generator(&mut rng);
         if let Ok(valid) = url_valid(&pattern).await {
-            if valid {
+            if valid == true {
                 println!("Iteration: {} Valid URL: {}", iteration, pattern);
                 break;
-            } else {
+            } else if valid == false {
                 println!("Iteration: {} Invalid URL: {}", iteration, pattern);
+            } else {
+                println!("Iteration: {} Error parsing URL: {}", iteration, pattern);
             }
         }
     }
