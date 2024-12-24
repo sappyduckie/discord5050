@@ -1,26 +1,3 @@
-/////////////////////////////////////////////////////////////////////////////////////////////
-//                                                                                         //
-//    Discord5050: A recursive search algorithm that generates and validates randomized    //
-//    Discord media links until it finds a valid image, and then outputs the URL.          //
-//                                                                                         //
-//    Copyright (C) <2024>  <sappyduckie>                                                  //
-//                                                                                         //
-//    This program is free software; you can redistribute it and/or modify                 //
-//    it under the terms of the GNU General Public License as published by                 //
-//    the Free Software Foundation; either version 2 of the License, or                    //
-//    (at your option) any later version.                                                  //
-//                                                                                         //
-//    This program is distributed in the hope that it will be useful,                      //
-//    but WITHOUT ANY WARRANTY; without even the implied warranty of                       //
-//    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the                        //
-//    GNU General Public License for more details.                                         //
-//                                                                                         //
-//    You should have received a copy of the GNU General Public License along              //
-//    with this program; if not, write to the Free Software Foundation, Inc.,              //
-//    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.                          //
-//                                                                                         //
-/////////////////////////////////////////////////////////////////////////////////////////////
-
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use reqwest::Client;
@@ -28,11 +5,47 @@ use std::fs::OpenOptions;
 use std::io::Write;
 use tokio;
 
+fn pattern_generator(rng: &mut StdRng) -> String {
+    // MODIFY THIS BELOW --------//
+    ///////////////////////////////
+    // INPUT GUILD ID(s) HERE /////
+    let guild_id: u64 = 1234567890;
+    // INPUT GUILD IDs HERE ///////
+    ///////////////////////////////
+    ///////////////////////////////
+    // INPUT CHANNEL ID(s) HERE ///
+    let channel_id_list = vec![ ///
+        "1234567890", /////////////
+        "1234567890", /////////////
+    ]; // INPUT CHANNEL IDs HERE //
+    ///////////////////////////////
+    // DO NOT MODIFY BELOW ------//
+
+    // RAND CHANNEL ID
+    let channel_id = choose_one(rng, &channel_id_list).unwrap(); // Unwrap safely since we know the list is not empty
+
+    // GEN HEX STRINGS
+    let first_hex_8: String = hash_gen(rng, 8); // 8 hex chars
+    let second_hex_8: String = hash_gen(rng, 8); // 8 hex chars
+    let third_hex_8: String = hash_gen(rng, 8); // 8 hex chars
+    let hex_64: String = hash_gen(rng, 64); // 64 hex chars
+    let format_width: u16 = rng.gen_range(1..=999); // 3 digits
+    let format_height: u16 = rng.gen_range(1..=999); // 3 digits
+
+    // FINAL URL
+    let url: String = format!(
+        "https://media.discordapp.net/attachments/{}/{}/image.png?ex={}&is={}&hm={}&=&format=webp&quality=lossless{}&width={}&height={}",
+        guild_id, channel_id, first_hex_8, second_hex_8, third_hex_8, hex_64, format_width, format_height
+    );
+
+    return url;
+}
+
 fn hash_gen(rng: &mut StdRng, length: usize) -> String {
     let hex_chars: &str = "0123456789abcdef";
     let mut hex_string: String = String::with_capacity(length);
 
-    // Generate hex char, loop 'length' times
+    // GEN HEX CHAR, LOOP 'LENGTH' TIMES
     for _ in 0..length {
         let index: usize = rng.gen_range(0..16);
         hex_string.push(hex_chars.chars().nth(index).unwrap());
@@ -40,74 +53,67 @@ fn hash_gen(rng: &mut StdRng, length: usize) -> String {
     hex_string
 }
 
-fn pattern_generator(rng: &mut StdRng) -> String {
-    // randomized variables
-    let guild_id: u64 = rng.gen_range(1..=999999999999999999); //18 digits + 1
-    let one_two: u8 = rng.gen_range(1..=2); //1 digit: one or two
-    let channel_id: u64 = rng.gen_range(1..=9999999999999999); //16 digits + 3
-    let first_hex_8: String = hash_gen(rng, 8); //8 hex chars
-    let second_hex_8: String = hash_gen(rng, 8); //8 hex chars
-    let third_hex_8: String = hash_gen(rng, 8); //8 hex chars
-    let hex_64: String = hash_gen(rng, 64); //64 hex chars
-    let format_width: u16 = rng.gen_range(1..=999); //3 digits
-    let format_height: u16 = rng.gen_range(1..=999); //3 digits
-    // final url
-    let url: String = format!("https://media.discordapp.net/attachments/1{}/13{}{}/image.png?ex={}&is={}&hm={}&=&format=webp&quality=lossless{}&width={}&height={}", guild_id, one_two, channel_id, first_hex_8, second_hex_8, third_hex_8, hex_64, format_width, format_height);
-    return url;
+fn choose_one<'a, T>(rng: &mut StdRng, list: &'a [T]) -> Option<&'a T> {
+    if list.is_empty() {
+        return None; //prevent panic
+    }
+    let index: usize = rng.gen_range(0..list.len()); //gen rand index
+    Some(&list[index]) //return ref to item
 }
 
-fn append_to_txt(file_path: &str, url: &str) {
-    // open the file and append, create if not exist
+fn append_to_txt(file_path: &str, url: &str, channel_id: &str) {
+    // OPEN FILE AND APPEND URL + CHANNEL
     let mut file = OpenOptions::new()
         .append(true)
         .create(true)
         .open(file_path)
         .expect("Unable to open or create file");
-    // write the url to the file followed by a newline
-    if let Err(e) = writeln!(file, "{}", url) {
+    // WRITE URL TO FILE
+    if let Err(e) = writeln!(file, "{} from: {}", url, channel_id) {
         eprintln!("Error writing to file: {}", e);
     }
 }
 
-async fn url_valid(url: &str) -> Result<bool, reqwest::Error> {
+async fn url_valid(url: &str, channel_id: &str) -> Result<bool, reqwest::Error> {
     let client: Client = Client::new();
     let response: reqwest::Response = client.get(url).send().await?;
     let status: reqwest::StatusCode = response.status();
-    // check if response is successful
+    // CHECK RESPONSE SUCCESS
     if status.is_success() {
         return Ok(true);
     }
-    // attempt to get the response body as text
+    // GET RESPONSE AS TEXT
     match response.text().await {
         Ok(body) => {
             if body.contains("This content is no longer available.") {
                 return Ok(false); //return invalid if 404
             } else {
-                append_to_txt("valid.txt", &url);
+                append_to_txt("valid.txt", &url, &channel_id);
                 return Ok(true); //return valid if not 404
             }
         }
         Err(_) => {
-            // body cannot be converted to a string
-            append_to_txt("valid.txt", &url);
+            // ERR: BODY CANNOT BE CONVERTED TO STRING
+            append_to_txt("error.txt", &url, &channel_id); //just in case err is img
             println!(
                 "Error: Unable to convert response body to string for URL: {}",
                 url
             );
-            return Ok(false); //return invalid if error
+            return Ok(false); //keep searching
         }
     }
 }
 
 #[tokio::main]
 async fn main() {
-    let mut iteration: u128 = 0;
-    let mut rng: StdRng = SeedableRng::seed_from_u64(173842069800850911); // Initialize RNG with the static seed
-
+    let mut iteration: u128 = 0; //made it a u128 just in case it hits a limit
+    let mut rng: StdRng = SeedableRng::seed_from_u64(173842069800850911);
+    // MAIN LOOP
     loop {
-        iteration += 1;
+        iteration += 1; //count for fun
         let pattern: String = pattern_generator(&mut rng);
-        if let Ok(valid) = url_valid(&pattern).await {
+        let channel_id: String = pattern.split("/").nth(5).unwrap().to_string();
+        if let Ok(valid) = url_valid(&pattern, &channel_id).await {
             if valid == true {
                 println!("Iteration: {} Valid URL: {}", iteration, pattern);
                 break;
